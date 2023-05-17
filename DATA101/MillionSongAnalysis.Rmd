@@ -1,0 +1,250 @@
+---
+title: "Million Song Dataset Analysis"
+author: "Lucy Murray"
+date: "6/24/2019"
+output:
+  html_document: default
+  pdf_document: default
+  toc: true
+  toc_depth: 2
+---
+
+# Environment Preparation
+
+## Load Packages
+
+```{r message=FALSE}
+# Define packages to be used, install them if not already installed, and open them with library
+packages <- c("openxlsx", "dplyr", "tidyr", "ggplot2", "gganimate", "plotly", "gifski")
+
+uninstalled_pkgs <- packages[!(packages %in% installed.packages()[, "Package"])]
+if (length(uninstalled_pkgs) > 0) install.packages(uninstalled_pkgs)
+invisible(lapply(packages, library, character.only = TRUE))
+```
+
+## Define Parameter Values
+
+Defines file location of local folders and files
+
+-   `local_dir` is the local folder path
+
+```{r parameter-values}
+# Local Directory
+user <- Sys.info()[["user"]]
+local_dir <- paste0("C:/Users/", user, "/Software/Git Local/DataScienceCertificate_MC/flatfiles/")
+csv_file <- paste0(local_dir, "MillionSong_subset.csv")
+```
+
+# Introduction
+
+For this project, I used a [library](http://millionsongdataset.com/pages/getting-dataset/#subset) adapted from The Million Song Dataset. The Million Song Dataset is a "freely-available collection of audio features and metadata for a million contemporary popular music tracks", provided by The Echo Nest. This adaption was developed for another project by Ryan Whitcomb. I wanted to work with it, as it already had a reduced number of observations from 1,000,000 to 10,000.
+
+# 1. Formulating the Question
+
+I want to investigate a couple of aspects of songs in comparison to their "song hotness" ranking. I decide to pose the question: How does duration and tempo contribute to a song's hotness ranking? Did this change over time?
+
+# 2. Reading the Data
+
+First, I imported data and stored it in the "music" variable, so it is easier to call. I set the argument stringsAsFactors = FALSE, so that it would import strings as characters.
+```{r}
+music <-read.csv(csv_file, stringsAsFactors = FALSE)
+```
+
+# 3. Checking the Packaging
+
+I assume the imported data will be a data frame, as it contains data of different data types. I can confirm this by utilizing the class() function. I will also check the dimensions and structure to get a better overview of the data set.
+```{r}
+#checking characteristics of the dataset
+class(music)
+
+#checking the number of rows and columns
+nrow(music)
+ncol(music)
+
+#this can also be done all at once with dimension
+dim(music)
+```
+
+# 4. Observing the Structure
+
+I want to check the structure of the data frame to see the names of the columns and tables. I can also see the data type contained in each column.
+```{r}
+#checking the structure
+str(music)
+```
+
+# 5. Checking the Head and Tail
+
+I am interested in checking the head and tails of the data. I can set the second argument in these functions to 10 in order to see the first 10 observations of the data frame.
+```{r}
+#Head of data
+head(music, 10)
+#Tail of data
+tail(music, 10)
+
+```
+
+### Selecting Specific Columns
+I decided to filter my data set by song hotness ranked greater than 0 and years greater than 0, as these values are not very useful to me. I also selected columns with variables that I am most interested in seeing how they may have influenced song hotness. This extraction improves the useaebility and readability of the data frame.
+```{r}
+#creating the simple_music extraction
+simple_music<-filter(music, song.hotttnesss > 0 & year > 0) %>% select(title, artist.name, year, song.hotttnesss, tempo, duration)
+
+#checking the drugs extraction
+str(simple_music)
+head(simple_music)
+tail(simple_music)
+```
+
+### Converting Duration into Minutes
+I think that it may be easier to understand the duration variable if I convert it from seconds to minutes, so I created a new column and added it to the data frame.
+```{r}
+simple_music2<- simple_music %>% mutate(duration.mins = duration/60)
+head(simple_music2)
+```
+
+# 6. Checking the Count
+
+How many artists are represented in this data set?
+```{r}
+#number of unique artists
+select(simple_music2, artist.name) %>% unique %>% nrow 
+```
+
+How many years are represented in this data set?
+```{r}
+#number of unique artists
+select(simple_music2, year) %>% unique %>% nrow 
+```
+
+Which years?
+```{r}
+#all years represented in data set
+unique(simple_music2$year)
+```
+
+# 7. Validating the Data
+
+According to an analysis of the same data for the InfoVis Final Project by Tom Englehardt, average song duration has increased between 1960 and 2010. We can quickly glance at the summary statistics of each of these years and see if this is the case.
+```{r}
+#checking the summary statistics of 1960
+y1960<-filter(simple_music2, year==1960)
+summary(y1960)
+
+#checking the summary statistics of 2010
+y2010<-filter(simple_music2, year==2010)
+summary(y2010)
+```
+The average duration of a song in 1960 was 2.814 minutes and in 2010 it was 3.9311 minutes. It appears that it did indeed increase!
+
+# 8. Try the easy solution first
+
+I would like to take a glance at the highest ranking songs by song hotness. I can do so by using the arrange() function. 
+```{r}
+ranking <- arrange(simple_music2, desc(song.hotttnesss))
+head(ranking, 10)
+tail(ranking, 10)
+```
+
+### Histogram Visualization: Song Hotness
+We can visualize this data with a histogram. I lowered the binwidth to 0.01 so we can see more of the data. I went ahead and added color to the histogram so that it would be easier to read.
+```{r}
+#creating and printing the hist for song hotness
+hist_hotness<- simple_music2 %>% ggplot(aes(song.hotttnesss)) +
+  geom_histogram(binwidth=0.01, fill=I("blue"), col=I("pink"), alpha=.6) +
+  labs(x = "Song Hotness Score", y = "Count")
+hist_hotness
+```
+
+It appears to be close to the normal distribution, but has several outliers. If it were to emulate the normal distribution, than I would expect that the mean, median, and mode are equal. We can check this with the summary() function.
+```{r}
+summary(simple_music2$song.hotttnesss)
+```
+
+Let's check the mode!
+```{r}
+#creating the mode function
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+getmode(simple_music2$song.hotttnesss)
+```
+
+The mean for song hotness is 0.5021, the median is 0.5034, and the mode is 0.2659. Thus, it is clear that it varies from the normal distribution.
+
+### Boxplot Visualization: Song Hotness
+We can visualize this summary information with a boxplot.
+```{r}
+#creating and printing the boxplot for song hotness
+boxplot(simple_music2$song.hotttnesss, col = "blue")
+
+```
+
+### Scatterplot Visualization: Song Duration Affect on Song Hotness
+A good way to see the visual affect of song duration on song hotness rankings for songs is to utilize a scatterplot.
+```{r}
+with(simple_music2, plot(duration.mins, song.hotttnesss, xlab="Duration (mins)", ylab="Song Hotness"))
+```
+
+# 9. Challenge your solution
+
+### Using ggplot2 to Recreate the Scatterplot
+
+The package ggplot2 can give us more sophisticated graphs for looking at how duration of a song impacted song hotness. I set the color to blue and the opacity to .4 so we can see the points better.
+```{r}
+ggplot(data = simple_music2) +
+ geom_point(mapping = aes(x = duration.mins, y = song.hotttnesss), col=I("blue"), alpha=.4) +
+  labs(title = "Song Hotness vs Duration", 
+       x = "Duration (mins)", y = "Song Hottness")
+```
+
+### Adding the Tempo Dimension
+It looks like shorter songs tend to have higher song hotness rankings! And in general, there is a tendency of songs to have a duration that is below 6 minutes. Now let's see what happens when we add a third dimension of tempo in BPM using the size aesthetic.
+```{r}
+ggplot(data = simple_music2) +
+ geom_point(mapping = aes(x = duration.mins, y = song.hotttnesss, size=tempo), col=I("blue"), alpha=.4) +
+  labs(title = "Song Hotness vs Duration", 
+       x = "Duration (mins)", y = "Song Hottness")
+```
+Wow, it appears that a majority of songs with higher song hotness rankings had faster tempos overall! In fact, the majority of the data had tempos over 100 BPM.
+
+### Scatterplot Visualization: Song Duration Over Time
+Another interesting variable to consider is looking at how duration of songs changed over time. I set the points to red and the opacity to .4 so that we can see it better in contrast with the regression line, created by the geom_smooth() function.
+```{r}
+ggplot(data = simple_music2) +
+ geom_point(mapping = aes(x = year, y = duration.mins), col=I("red"), alpha=.4) +
+ geom_smooth(mapping = aes(x = year, y = duration.mins)) + 
+  labs(title = "Song Duration Over Time", 
+       x = "Year", y = "Duration (mins)")
+```
+It looks like the duration of songs has remained relatively static over time, with overall more data existing in the data frame for later years.
+
+# 10. Follow up
+
+Another way to look at this data is to split the plot into facets. We can now see the individual affects of song duration on song hotness in each year, with tempo being represented by size again. Pretty neat! Although a little hard to read.
+```{r}
+ggplot(data = simple_music2) + 
+  geom_point(mapping = aes(x = duration.mins, y = song.hotttnesss, size=tempo), col=I("blue"), alpha=.4) + 
+  facet_wrap(~ year, ncol = 10)
+```
+
+We can recreate this affect with an animation to show how the plots changed over time. 
+```{r}
+#static plot
+p <- ggplot(simple_music2) +  
+  geom_point(mapping = aes(x = duration.mins, y = song.hotttnesss, size=tempo), col=I("blue"), alpha=.4) + 
+  labs(x = "Duration (mins)", y = "Song Hotness")
+p
+```
+
+```{r}
+#transition plot
+anim_save <- p +
+  transition_time(year) +
+  labs(title = "Year: {frame_time}") +
+  exit_shrink()
+
+animate(anim_save, duration = 5, fps = 20, width = 200, height = 200, renderer = gifski_renderer())
+anim_save("Song_Plot.gif", animation = last_animation())
+```
