@@ -1,0 +1,274 @@
+---
+title: "Suicide Rate from 1985 to 2016 Analysis"
+author: "Lucy Murray"
+date: "6/29/2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# Environment Preparation
+
+## Load Packages
+
+```{r message=FALSE}
+# Define packages to be used, install them if not already installed, and open them with library
+packages <- c("openxlsx", "dplyr", "tidyr", "ggplot2", "gganimate", "plotly", "gifski")
+
+uninstalled_pkgs <- packages[!(packages %in% installed.packages()[, "Package"])]
+if (length(uninstalled_pkgs) > 0) install.packages(uninstalled_pkgs)
+invisible(lapply(packages, library, character.only = TRUE))
+```
+
+## Define Parameter Values
+
+Defines file location of local folders and files
+
+-   `local_dir` is the local folder path
+
+```{r parameter-values}
+# Local Directory
+user <- Sys.info()[["user"]]
+local_dir <- paste0("C:/Users/", user, "/Software/Git Local/DataScienceCertificate_MC/flatfiles/")
+who_data <- paste0(local_dir, "SuicideWHO2016.csv")
+cdc_data <- paste0(local_dir, "CDC2014.csv")
+```
+
+# Introduction
+
+For this project, I am using a [library](https://www.kaggle.com/russellyates88/suicide-rates-overview-1985-to-2016) that compiles data about Suicide Rates from 1985 to 2016. It pulls data from the United Nations Human Developments Report, The World Bank DataBank, World Health Organization (WHO) Suicide Statistics, and the World Health Organization National suicid prevention strategies report.
+
+I want to look at how suicide rates in the United States affected different generations over time. I am also interested in comparing the populations of the United States and the United Kingdom in this data set. 
+
+A description of generations is listed below by the [Center for Generational Kinetics](https://genhq.com/faq-info-about-generations/).
+
+Generation Z: Born 1996 – TBD
+Millennials: Born 1977 – 1995
+Generation X: Born 1965 – 1976
+Baby Boomers: Born 1946 – 1964
+Silent: Born 1927 - 1945
+G.I. Generation: Born 1901 - 1926
+
+# 1. Formulating the Question
+
+I have two questions that I would like to address in this project:
+1. How did number of suicides in the United States change over time across different generations?
+
+2. Is the difference between the mean population of the United States and the United Kingdom significant?
+Null hypothesis (H0):μ=μ0
+Alternative hypothesis (Ha):μ≠μ0
+
+# 2. Reading the Data
+
+First, I imported data and stored it in the "suicide" variable, so it is easier to call. I set the argument stringsAsFactors = FALSE, so that it would import strings as characters.
+```{r}
+suicide <-read.csv(who_data, stringsAsFactors = FALSE)
+```
+
+# 3. Checking the Packaging
+
+I assume the imported data will be a data frame, as it contains data of different data types. I can confirm this by utilizing the class() function. I will also check the number of rows and columns in the data frame. I can do this with one function by viewing the dimensions of the data set. 
+```{r}
+#checking characteristics of the dataset
+class(suicide)
+
+#checking the number of rows and columns
+nrow(suicide)
+ncol(suicide)
+
+#this can also be done all at once with dimension
+dim(suicide)
+```
+
+# 4. Observing the Structure
+
+I want to check the structure of the data frame to see the names of the columns and tables. I can also see the data type contained in each column.
+```{r}
+#checking the structure
+str(suicide)
+```
+
+# 5. Checking the Head and Tail
+
+I am interested in checking the head and tails of the data. I set the second argument in these functions to 10 in order to see the first 10 observations at the beginning and end of the data frame.
+```{r}
+#head of data
+head(suicide, 10)
+
+#tail of data
+tail(suicide, 10)
+```
+
+### Selecting Specific Columns
+
+I decided to select columns with variables that I believe will be most useful to my analysis. There are many missing values in the HDI.for.year, the variable country.year seems redudant, and the variable gdp_for_year seems less comprehensive than gdp per capita. Thus, I have decided to select the data without these three aforementioned columns. I have also decided to rename the columns ï..country and gdp_per_capita.... to country and gdp_per_capita, respectively, so that they are easier to call. I filtered by the two countries I am interested in--the Untied States and the United Kingdom. This extraction improves the useaebility and readability of the data frame.
+```{r}
+#creating the sorted_sui extraction
+sorted_sui <- suicide %>% select(-(HDI.for.year), -(country.year), -(gdp_for_year....)) %>% rename(country = ï..country, gdp_per_cap = gdp_per_capita....) %>% filter(country==c("United States","United Kingdom"))
+sorted_sui_US <- suicide %>% select(-(HDI.for.year), -(country.year), -(gdp_for_year....)) %>% rename(country = ï..country, gdp_per_cap = gdp_per_capita....) %>% filter(country==c("United States"))
+sorted_sui_UK <- suicide %>% select(-(HDI.for.year), -(country.year), -(gdp_for_year....)) %>% rename(country = ï..country, gdp_per_cap = gdp_per_capita....) %>% filter(country==c("United Kingdom"))
+
+#checking the sorted_sui extraction
+str(sorted_sui)
+head(sorted_sui)
+tail(sorted_sui)
+```
+
+# 6. Checking the Count
+
+How many years are represented in this data set?
+```{r}
+#number of unique years
+select(sorted_sui, year) %>% unique %>% nrow 
+```
+
+Which years in order?
+```{r}
+#all years represented in data set
+unique(sorted_sui$year)
+```
+
+# 7. Validating the Data
+
+I would like to validate my data with an external source. The Centers for Disease Control and Prevention (CDC) has a [tool](https://webappa.cdc.gov/sasweb/ncipc/mortrate.html) to present suicide statistics for the United States. I will be looking at the years available to compare to my data set with information from the World Health Organization (WHO).
+
+Suicides by year in the US, according to CDC data:
+```{r}
+#checking the suicides by year in the US, according to CDC
+cdc <- read.csv(cdc_data, stringsAsFactors = FALSE)
+ranking_0414_CDC<-group_by(cdc, Year) %>% filter(Year %in% c("2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014")) %>% select(Year, Deaths, Cause.of.Death) %>% as.data.frame %>%  arrange(Year)
+ranking_0414_CDC
+```
+
+Suicides by year in the US, according to WHO data:
+```{r}
+#checking the suicides by year in the US, according to WHO
+ranking_0414_WHO<- group_by(suicide, year) %>% rename(country = ï..country)  %>% filter(year %in% c("2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014"), country=="United States") %>% summarize(total_suicides = sum(suicides_no)) %>% as.data.frame %>%  arrange(year)
+ranking_0414_WHO
+```
+
+The tables look quite similar! This is exactly what we wanted and confirms that our data is valid.
+
+# 8. Try the easy solution first
+
+### Scatterplot Visualization: Number of Suicides Over Time for the U
+In order to address the first question, we can see the number of suicides over time as it impacts generations individually is with multiple boxplots.
+```{r}
+US_boxplot<- ggplot(data = sorted_sui_US) + 
+  geom_boxplot(mapping = aes(x = factor(generation), y = suicides_no, 
+                             fill = factor(generation))) +
+  labs(title = "Number of Suicides by Generation Boxplots", 
+       x = "Generation", y = "Number of Suicides")
+US_boxplot
+```
+
+### Lineplot visualization
+
+For change over time, line plot visualizations can be helpful. I will add color aesthetics to account for the third categorical variable of generations.
+```{r}
+ggplot(data = sorted_sui_US) + 
+  geom_point(mapping = aes(x = year, y = suicides_no, color=generation)) +
+  geom_smooth(mapping = aes(x = year, y = suicides_no, color=generation)) +
+  scale_x_continuous(breaks = seq(1985, 2015, by = 5)) +
+  labs(title = "Number of Suicides in the US vs Year by Generation", 
+       x = "Year", y = "Number of Suicides")
+```
+This graph is interesting! From it, we can see that the G.I. Generation is no longer represented at about the year 2000, and that Generation Z is not represented until about the year 2007. This makes sense as they are the oldest and youngest generations, respsectively.  
+
+### Histogram Visualization: GDP per Cap
+
+In order to address the second question, we need to examine whether or not the population is approximately normal.
+```{r}
+#creating and printing the histogram for the US population
+hist_pop_US<- ggplot(sorted_sui_US, aes(population)) + 
+  geom_histogram(aes(y=..density..), color="red", fill="white") +
+  geom_density(fill="green",  alpha=.5)
+
+hist_pop_US
+
+#creating and printing the histogram for the UK population
+hist_pop_US<- ggplot(sorted_sui_UK, aes(population)) + 
+  geom_histogram(aes(y=..density..), color="red", fill="white") +
+  geom_density(fill="green",  alpha=.5)
+
+hist_pop_US
+```
+
+The data appears to be symmmetric. If it were to emulate the normal distribution, than I would expect that the mean and median to be approximately equal.
+```{r}
+#US summary stats
+summary(sorted_sui_US$population)
+
+#UK summary stats
+summary(sorted_sui_UK$population)
+```
+Mean for US: 21650611 
+Median for US: 20375469
+
+Mean for UK: 4674107 
+Median for UK: 4121212
+
+They are indeed approximately equal!
+
+### Boxplot Visualization: Population
+We can quickly visualize this summary information with a boxplot.
+```{r}
+#creating and printing the boxplot for US
+boxplot(sorted_sui_US$population, col = "blue")
+#creating and printing the boxplot for UK
+boxplot(sorted_sui_UK$population, col = "red")
+```
+
+### Performing the T-test
+
+Now to see if the difference of the populations means is significance, we can take the t-test.
+```{r}
+#performing the t-test on the difference of 
+t.test(sorted_sui_US$population, sorted_sui_UK$population)
+```
+
+In the data set, the mean population of the United States is 21,650,611 and the mean population of the UK is 4,674,107. The t-statistic is 33.972. The 95% confidence interval of the difference in mean population is between  15,994,103 people and 1,7958,904 people. The  p-value is less than 2.2*10^(-16), which is an incredibly small number. This indicates the the result is highly singificant. Thus, at a 95 percent confidence level, we can reject the null hypothesis that that μ=μ0 or that the two are means are equal, and we accept the alternative hypothesis.
+
+# 9. Challenge your solution
+
+For the first question, we can create line plots for the United States (and the United Kingdom) that show number of suicides per year for each generation. 
+```{r}
+g1 <- ggplot(sorted_sui_US, aes(x = year, y = suicides_no, colour = generation)) +
+  geom_line() +
+  stat_summary(aes(group = 1), geom = "line", fun.y = mean, size = 1, col = "black") +
+  scale_x_continuous(breaks = seq(1985, 2015, by = 15)) +
+  facet_grid(. ~ generation)
+g2 <- ggplot(sorted_sui_UK, aes(x = year, y = suicides_no, colour = generation)) +
+  geom_line() +
+  stat_summary(aes(group = 1), geom = "line", fun.y = mean, size = 1, col = "black") +
+  scale_x_continuous(breaks = seq(1985, 2015, by = 15)) +
+  facet_grid(. ~ generation)
+
+g1
+
+g2
+
+```
+
+For the second question, we can create similar line plots for the United States (and the United Kingdom) that the population per year for each generation. 
+
+```{r}
+g3 <- ggplot(sorted_sui_US, aes(x = year, y = population, colour = generation)) +
+  geom_line() +
+  stat_summary(aes(group = 1), geom = "line", fun.y = mean, size = 1, col = "black") +
+  scale_x_continuous(breaks = seq(1985, 2015, by = 15)) +
+  facet_grid(. ~ generation)
+g4 <- ggplot(sorted_sui_UK, aes(x = year, y = population, colour = generation)) +
+  geom_line() +
+  stat_summary(aes(group = 1), geom = "line", fun.y = mean, size = 1, col = "black") +
+  scale_x_continuous(breaks = seq(1985, 2015, by = 15)) +
+  facet_grid(. ~ generation)
+
+g3
+g4
+
+```
+
+# 10. Follow up
+
+We can use the line graphs produes in item 9 to conclude that the suicide rates by generation for the United States were directly correlated with the population of these countries in the data set. This makes sense. Further, we can see that the overall patterns of suicide rates rose and fell around the same times for the United States and the United Kingdom. We also see that the overall patterns of population rose and fell around the same times for the United States and the United kingdom. All of the plots generally seem to rise and fall similarly. Further exploration about what may have caused theses trends can be made!

@@ -1,5 +1,5 @@
 ---
-title: "Million Song Dataset Analysis"
+title: "Million Song Analysis"
 author: "Lucy Murray"
 date: "6/24/2019"
 output:
